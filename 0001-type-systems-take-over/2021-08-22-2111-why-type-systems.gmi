@@ -55,7 +55,7 @@ These days, usage of higher-order and anonymous functions is prominent even in m
 
 Type systems also enable and encourage writing composable code, meaning that the programmers are nudged towards writing well-structured and modular code bases, no matter what is the unit of modularity: a Java class or a Haskell module.
 
-### Drawback of type systems
+### Drawbacks of type systems
 
 Type systems aren't entirely free. Both the users (programmers) and the computer itself have to do extra work to write a program that would be accepted by a language with a type system. Sometimes, that work takes non-trivial amounts of computational time, but in practice, it's seldom more computationally intense than, say, code generation via templates.
 
