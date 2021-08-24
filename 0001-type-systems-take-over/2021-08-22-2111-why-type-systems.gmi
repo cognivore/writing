@@ -1,0 +1,89 @@
+Why type systems matter?
+
+## Formal methods
+
+We want our programming language environments at large to be able to tell well-behaved programs from those that behave poorly. It doesn't matter how it's achieved. 
+
+* Runtime monitoring which includes things like operations on incompatible objects (a la Python) and underappreciated contract programming based on preconditions and postconditions, as well as invariant checking (a la DLang) [4].
+* Some will remember model-driven engineering with UML modelling (my Vim highlighted "UML" as a non-existent word! It brings me joy). Automatically deriving constraints from such models and rejecting models that are self-contradicting or breaking some constraints. (a la EMFtoCSP [3]).
+* Both digital and analog circuits can be accepted or rejected based on automatically derived finite state machine models and checking for desired properties [1][2].
+* Type systems for rejecting classes of poorly-behaved programs statically, during compilation (a la Java).
+
+Rather interesting observation is that these discriminators should be reproducible, which calls for underlying formalisms. Furthermore, it's preferred that domain experts (Python programmers, UML architects, embedded systems engineers) can reap benefits from those. That property is called "lightweight" in the formal methods community.
+
+``` Code snippet showing a JavaScript runtime error
+x = [() => 42];
+y = x + x;
+y[0]();
+Uncaught TypeError: x[0] is not a function
+```
+
+---------
+
+
+``` Code snippet showing a similar Haskell compile time error
+x :: [() -> Int]
+x = [\() -> 42]
+
+y :: [() -> Int]
+y = x + x
+
+=>
+
+[1 of 1] Compiling Main             ( /tmp/hi.hs, interpreted )
+
+/tmp/hi.hs:5:5: error:
+    ¢ No instance for (Num [() -> Int]) arising from a use o f+
+    ¢ In the expression: x + x
+      In an equation for y: y = x + x
+  |
+5 | y = x + x
+  |     ^^^^^
+```
+
+The first one is an error, caught by runtime monitoring which doesn't even get caught at line two, where the nonsense operation is performed. The second one uses static analysis using a type system. As long as the type system is lightweight enough for the engineers to be reasonably productive with it, this class of formal methods should be preferred by businesses. The reason for that is obvious for those who have studied systems engineering. The cost of fixing a fault in a system grows exponentially as a function of how far it is from the requirement gathering stage in the lifecycle of a system.
+
+### Benefits of using type systems
+
+Type systems come in different shapes and sizes: different type systems may be geared to eliminate different classes of incorrect programs. However, most of type systems--collaterally--eliminate programmers' errors such as incomplete case analyses, mismatched units, et cetera.
+
+Type checkers are powerful refactoring tools. Anecdotally, at work, once we had to restructure approximately fifty modules, while separating part of those into a library and fusing arguments into structures in another part of those. The whole refactoring was done and released by one person in one working day. It would have been impossible without a type checker to ensure completeness of said refactoring.
+
+Notorious for a steep learning curve and perceived feature development slow-down, languages with type systems--granted a certain engineering savviness--can serve as amazing facilitators of rapid prototyping. The goal of prototyping is often figure out the best specification for the requirements at hand. Expressive type systems often allow to encode relationships between domain entities without writing complex business logic. If one views types as propositions and values of said types as proofs of said propositions, this approach makes a lot of sense. Of course, mileage can vary and it works better the less side-effects there are in a system, but remember that you can simulate side effects via type encodings too! For instance, instead of making actual HTTP requests, you can wrap your data in constructors like HTTPReq and HTTPResp. This approach is similar to, but more pragmatic than, and less insightful than, denotational design [5]. Denotational design is criticised by some [6].
+
+These days, usage of higher-order and anonymous functions is prominent even in more conservative ecosystems like Java's. Type systems greatly assist in reasoning about the code's overall behaviour. In general, type systems are one of many tools for writing self-documenting code.
+
+Type systems also enable and encourage writing composable code, meaning that the programmers are nudged towards writing well-structured and modular code bases, no matter what is the unit of modularity: a Java class or a Haskell module.
+
+### Drawback of type systems
+
+Type systems aren't entirely free. Both the users (programmers) and the computer itself have to do extra work to write a program that would be accepted by a language with a type system. Sometimes, that work takes non-trivial amounts of computational time, but in practice, it's seldom more computationally intense than, say, code generation via templates.
+
+Also, not quite a drawback, but rather something many people don't understand about type systems. There's an "if it compiles, it works" meme, but it's extremely misleading. Type systems, by their static nature, can't prove presence of features of a program, only absence. But this yields a couple of actual drawbacks:
+
+- With type systems, you almost always pick your fights. Languages geared towards eliminating one kind of bad program behaviours won't eliminate another, perhaps, side-stepping it altogether by deferring it to the language runtime.
+- Scrutiny, thus power, of type systems is always in tension with expressiveness, which is understood as the measure of the programs that are well-behaved at runtime, which are rejected by the type checker.
+- Sometimes complex type checking algorithms rely on heuristics, which limit expressiveness in ways, unexpected by the user [7].
+
+### Bottom line
+
+We'll end this section with a nice heuristic for architects to think about using type systems is to perform the following thought experiment:
+
+ 1. Approximate how much would it cost to write, deploy and run a 100%-coverage random testing system, searching for runtime errors
+ 2. Approximate how much would it cost to train developers to use a "tight" type system, which would give the same sort of guarantees "for free" and in static fashion.
+
+If cost 2 is even comparable to, let alone lower than, cost 1, going for using type systems to refuse incorrect programs is warranted. Quoting "The Toyota Way":
+
+> Focusing on quality actually reduced cost more than focusing only on cost.
+
+# Links
+
+## Formal methods
+
+=> https://www.youtube.com/watch?v=VUr5jiQvUMY [1]: Formal Verification (in Embedded Systems Design), Prof. Anupam Basu, NPTEL
+=> https://d-nb.info/1010333739/34 [2]: Formal Verification Methodologies for Nonlinear Analog Circuits, Dr. S. Steinhorst, Ph.D. thesis
+=> https://ieeexplore.ieee.org/document/6229788 [3]: EMFtoCSP: A tool for the lightweight verification of EMF models, C. A. Gonzalez et al.
+=> https://dlang.org/spec/contracts.html [4]: Contract Programming, DLang website
+=> https://github.com/conal/talk-2014-lambdajam-denotational-design [5]: Denotational Design: from meanings to programs, C. Elliott
+=> https://ro-che.info/articles/2014-12-31-denotational-design-does-not-work [6]: Denotational design does not work, R. Cheplyaka
+=> https://www.youtube.com/watch?v=jNbb5JVuq-o [7]: Dependency Analysis of Haskell Declarations, Artem Kuznetsov
