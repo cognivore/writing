@@ -92,7 +92,7 @@ Here's code with the same error in Haskell.
 23 |	    input = "Viktor Tsoi"
 ```
 
-When we try to compile it, we're going to get an error that says exactly what is wrong. To be able to apply `+`, operands had to be classified as numbers via typeclass `Num`. This typeclass doesn't include lists of validator functions. Note that if we would really want to define addition on such values, we would be able to, by providing an instance of `Num`. But it's a rather horrible idea, so we'll fix the bug instead.
+When we try to compile it, we're going to get an error that says exactly what is wrong. To be able to apply `+`, operands had to be classified as numbers via typeclass `Num`. This typeclass doesn't include lists of validator functions. Note that if we would really want to define addition on such values, we would be able to, by providing an appropriate instance of `Num`. But it's a rather horrible idea, so we'll fix the bug instead.
 
 ```Informative Haskell compile-time error, pinpointing the faulty location
 /tmp/hi.hs:13:19: error:
@@ -107,7 +107,7 @@ With this error, we quickly can replace line 15 with one using `++`, the list co
 
 When we run this one, we get the correct result!
 
-Static checking allows us to catch errors like this one early, which saves a lot of money while dealing with many errors, since--as systems engineering teaches us--the cost of fixing a fault in a system grows exponentially as a function of how far it is from the requirement gathering stage in the lifecycle of a system.
+Static checking allows us to catch many classes of errors like this one early, which saves a lot of money, since--as systems engineering teaches us--the cost of fixing a fault in a system grows exponentially as a function of how far it is from the requirement gathering stage in the lifecycle of a system.
 
 ### Benefits of using type systems
 
@@ -122,7 +122,7 @@ Type systems come in different shapes and sizes: different type systems may be g
    |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
 ```
 
-Of course, it's impossible to reap this benefit without a certain wit and discipline. Quoting my colleague:
+Of course, it's impossible to reap this benefit without a certain wit and discipline. I like to call that discipline "tight typing", many Haskellers call it "having as concrete data structures as possible" (it's an elaboration of mantra "abstract functions, concrete data". For instance, the `DummyTag` type you have seen earlier is loose, because it is used in the places of the model, because it is used to type incompatible terms. Quoting my colleague:
 
 > Nothing prevents you to subtract height from pressure if both of those are encoded as Float.
 
@@ -133,7 +133,7 @@ Type checkers are powerful refactoring tools. Anecdotally, at work, once we had 
 Notorious for a steep learning curve and perceived feature development slow-down, languages with type systems--granted a certain engineering savviness--can serve as amazing facilitators of rapid prototyping. The goal of prototyping is often figure out the best specification for the requirements at hand. Expressive type systems often allow to encode relationships between domain entities without writing complex business logic. If one views types as propositions and values of said types as proofs of said propositions, this approach makes a lot of sense. Of course, mileage can vary and it works better the less side-effects there are in a system, but remember that you can simulate side effects via type encodings too! For instance, instead of figuring out a proper way to do cryptography, we can encode an interface of a crypto-system and populate it with dummy functions, complying with it:
 
 ```A long code listing in Haskell with comments
--- | A type "interface" for prototyping with public key cryptography
+
 data PKC pass sk pk slip sig sigmsg enc plain cipher = PKC
   { -- | Initial key derivation function
     kdf :: pass -> (sk, pk, slip),
@@ -150,11 +150,15 @@ data PKC pass sk pk slip sig sigmsg enc plain cipher = PKC
     -- | Decrypts @cipher@, contained in an @encrypted@ container into @plain@.
     decrypt :: encrypted pk cipher -> sk -> Maybe plain
   }
+```
 
+This is a model of public key cryptography. Populating this model with functions would (together with tests that verify correct behaviours and error handling of a cryptosystem) serve as a proof of possibility of a correct implementation of public key cryptography in Haskell and provide an interactive specification for doing so, perhaps even in another language! Let's provide a quick example of some functions slotting into that model.
+
+```Helper types and some functions for PKC
 data DummyTag = DummySK | DummyPK | DummySlip
   deriving (Show, Eq)
 
--- Note that we abuse the fact that in dummy implementation
+-- | Note that we abuse the fact that in dummy implementation
 -- secret key and public key are both represented with a
 -- DummyTagged type alias to embed secret key together with
 -- the message.
@@ -178,6 +182,8 @@ dummyRekdf (DummySlip, x) pass =
     go False = Nothing
 dummyRekdf _ _ = error "DummySlip expected in the 1st argument"
 
+-- ...
+
 dummySign :: (DummyTagged, DummyTagged) -> msg -> DummySigned msg DummyTagged
 dummySign (verificationKey@(DummyPK, _), signingKey@(DummySK, _)) blob =
   DummySigned (verificationKey, (signingKey, blob))
@@ -191,11 +197,18 @@ dummyVerify (DummySigned ((DummyPK, signedAs), ((DummySK, signedWith), signedWha
   (signedAs == signedWith) && (candidate == signedWhat)
 ```
 
-Now to keep prototyping, we just need to instantiate PKC data type with a collection of suitable functions. Later on, when we switch to a real cryptographic system, a value of type PKC we'll build with it shall serve as a proof to the claim that "public key cryptographic systems exist as modeled". We can and should verify that early, but not too early to slow the prototyping down. Furthermore, in a similar fashion a HTTP client-server interactions can be modeled and after the prototype is completed, one will end up with a runnable, compileable specification for the software they're about to write. What's fairly amazing is that if the company doesn't want to switch from Haskell to another language for the actual product, they can repurpose this prototype for incremental rewrite into an MVP!
+Now to keep prototyping, we just need to instantiate PKC data type with a collection of suitable functions. Later on, when we switch to a real cryptographic system, a value of type PKC we'll build with it shall serve as a proof to the claim that "public key cryptographic systems exist as modeled". We can and should verify that early, but not too early to slow the prototyping down. Furthermore, in a similar fashion a HTTP client-server interactions can be modeled and after the prototype is completed, one will end up with a runnable, compilable specification for the software they're about to write. What's fairly amazing is that if the company doesn't want to switch from Haskell to another language for the actual product, they can repurpose this prototype for incremental rewrite into an MVP!
 
-These days, usage of higher-order and anonymous functions is prominent even in more conservative ecosystems like Java's. Type systems greatly assist in reasoning about the code's overall behaviour. In general, type systems are one of many tools for writing self-documenting code.
+These days, usage of higher-order and anonymous functions is prominent even in more conservative ecosystems like Java's. Type systems greatly assist in reasoning about the code's overall behaviour. In general, type systems are one of many tools for writing self-documenting code. An illustration for those, who (like me) keep forgetting the order of accumulator and an iterated value in reducers:
 
-Type systems also enable and encourage writing composable code, meaning that the programmers are nudged towards writing well-structured and modular code bases, no matter what is the unit of modularity: a Java class or a Haskell module.
+```
+Prelude> :t foldl
+foldl :: Foldable t => (b -> a -> b) -> b -> t a -> b
+```
+
+Yeah, if the language's ecosystem is tightly integrated with the underlying type system, amazing things are possible, from simple type signature lookups at your fingertips to full blown type signature search engines like Hoogle [8] and Serokell's hackage-search (which, somewhat ironically, is written in Rust) [9]. Conversely, if it evolved independently from type system, such as TypeScript extending JavaScript with success typings or Dialyzer extending Erlang and Elixir with success typings, likely, self-documenting benefits and improved discoverability will be way less pronounced, if at all.
+
+Type systems also enable and encourage writing composable code, meaning that the programmers are nudged towards writing well-structured and modular code bases, no matter what is the unit of modularity: a Java class or a Haskell module. Of course, there are ways to write spaghetti code in any language, but it's harder when the whole ecosystem imposes structure.
 
 ### Drawbacks of type systems
 
@@ -211,8 +224,8 @@ Also, not quite a drawback, but rather something many people don't understand ab
 
 We'll end this section with a nice heuristic for architects to think about using type systems is to perform the following thought experiment:
 
- 1. Approximate how much would it cost to write, deploy and run a 100%-coverage random testing system, searching for runtime errors
- 2. Approximate how much would it cost to train developers to use a "tight" type system, which would give the same sort of guarantees "for free" and in static fashion.
+ 1. Approximate how much would it cost to write, deploy and run a 100%-coverage random testing system, searching for runtime errors (in our JS example, it would be a test making sure that there is no validator crashed by a string and there is no call in the program that crashes is).
+ 2. Approximate how much would it cost to train developers to use a "tight" type system, which would give the same sort of guarantees "for free" and in static fashion (many different kinds of tests are still needed in this approach, but the tests we've described in p.1 are given to us for free).
 
 If cost 2 is even comparable to, let alone lower than, cost 1, going for using type systems to refuse incorrect programs is warranted. Quoting "The Toyota Way":
 
