@@ -2,7 +2,7 @@
 
 ## A fistful of formal methods
 
-We want our programming language environments at large to be able to tell well-behaved programs from those that behave poorly. It doesn't matter how it's achieved. 
+We want our programming language environments at large to be able to tell well-behaved programs from those that behave poorly. It doesn't matter how it's achieved.
 
 * Runtime monitoring which includes things like operations on incompatible objects (a la Python and JavaScript) and underappreciated contract programming based on preconditions and postconditions, as well as invariant checking (a la DLang) [4].
 * Some will remember model-driven engineering with UML modelling (my Vim highlighted "UML" as a non-existent word! It brings me joy). Automatically deriving constraints from such models and rejecting models that are self-contradicting or breaking some constraints. (a la EMFtoCSP [3]).
@@ -22,7 +22,7 @@ Not all formal methods, however, are made for the same reason and not everything
 05 |	  validate: (input) => (fs) =>
 06 |	    fs.reduce((acc, f) => acc && f(input), true),
 07 |	};
-08 |	
+08 |
 09 |	let module2 = {
 10 |	  alsoCapitalised: [
 11 |	    (x) =>
@@ -31,7 +31,7 @@ Not all formal methods, however, are made for the same reason and not everything
 14 |	       )
 15 |	  ] + module1.defaultValidators,
 16 |	}
-17 |	
+17 |
 18 |	let main = {
 19 |	  main: (input) => {
 20 |	    let validators = module2.alsoCapitalised;
@@ -40,7 +40,7 @@ Not all formal methods, however, are made for the same reason and not everything
 23 |	    }
 24 |	  }
 25 |	}
-26 |	
+26 |
 27 |	main.main("Viktor Tsoi");
 ```
 
@@ -69,7 +69,7 @@ Here's code with the same error in Haskell.
 ``` Code snippet showing a similar Haskell compile time error
 01 |	{-# LANGUAGE OverloadedStrings #-}
 02 |	import qualified Data.Text as T
-03 |	import Data.Text( Text(..) )
+03 |	import Data.Text( Text )
 04 |	import Data.Char( isUpper )
 05 |
 06 |	defaultValidators :: [Text -> Bool]
@@ -111,11 +111,87 @@ Static checking allows us to catch errors like this one early, which saves a lot
 
 ### Benefits of using type systems
 
-Type systems come in different shapes and sizes: different type systems may be geared to eliminate different classes of incorrect programs. However, most of type systems--collaterally--eliminate programmers' errors such as incomplete case analyses, mismatched units, et cetera.
+Type systems come in different shapes and sizes: different type systems may be geared to eliminate different classes of incorrect programs. However, most of type systems--collaterally--eliminate programmers' errors such as incomplete case analyses, mismatched units, et cetera. For example, if we get rid of line 21 in the Haskell listing entirely, in a well-configured GHC (which treats warnings as errors and warns about everything "suspicious), we'll get the following error, indicating incomplete case analysis:
 
-Type checkers are powerful refactoring tools. Anecdotally, at work, once we had to restructure approximately fifty modules, while separating part of those into a library and fusing arguments into structures in another part of those. The whole refactoring was done and released by one person in one working day. It would have been impossible without a type checker to ensure completeness of said refactoring.
+```Haskell error
+/tmp/hi.hs:19:3: error: [-Wincomplete-patterns, -Werror=incomplete-patterns]
+    Pattern match(es) are non-exhaustive
+    In a case alternative: Patterns not matched: False
+   |
+19 |   case validate input defaultValidators of
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
+```
 
-Notorious for a steep learning curve and perceived feature development slow-down, languages with type systems--granted a certain engineering savviness--can serve as amazing facilitators of rapid prototyping. The goal of prototyping is often figure out the best specification for the requirements at hand. Expressive type systems often allow to encode relationships between domain entities without writing complex business logic. If one views types as propositions and values of said types as proofs of said propositions, this approach makes a lot of sense. Of course, mileage can vary and it works better the less side-effects there are in a system, but remember that you can simulate side effects via type encodings too! For instance, instead of making actual HTTP requests, you can wrap your data in constructors like HTTPReq and HTTPResp. This approach is similar to, but more pragmatic than, and less insightful than, denotational design [5]. Denotational design is criticised by some [6].
+Of course, it's impossible to reap this benefit without a certain wit and discipline. Quoting my colleague:
+
+> Nothing prevents you to subtract height from pressure if both of those are encoded as Float.
+
+Type checkers are powerful refactoring tools. Anecdotally, at work, once we had to restructure approximately fifty modules, while separating part of those into a library and fusing arguments into structures in another part of those. The whole refactoring was done and released by one person in one working day. It would have been impossible without a type checker to ensure completeness of said refactoring. Another anecdote comes from my colleague:
+
+> When I worked for AlphaSheets.com (a startup "acquihired" by Google), I refactored the whole codebase, threading through an App monad instead of IO. I did this for a week in part due to painful and regular rebasing onto the main branch. But when the thing compiled, the only tests that failed were the ones covering a place that was stubbed with undefined, due to its implementation being open for discussion.
+
+Notorious for a steep learning curve and perceived feature development slow-down, languages with type systems--granted a certain engineering savviness--can serve as amazing facilitators of rapid prototyping. The goal of prototyping is often figure out the best specification for the requirements at hand. Expressive type systems often allow to encode relationships between domain entities without writing complex business logic. If one views types as propositions and values of said types as proofs of said propositions, this approach makes a lot of sense. Of course, mileage can vary and it works better the less side-effects there are in a system, but remember that you can simulate side effects via type encodings too! For instance, instead of figuring out a proper way to do cryptography, we can encode an interface of a crypto-system and populate it with dummy functions, complying with it:
+
+```A long code listing in Haskell with comments
+-- | A type "interface" for prototyping with public key cryptography
+data PKC pass sk pk slip sig sigmsg enc plain cipher = PKC
+  { -- | Initial key derivation function
+    kdf :: pass -> (sk, pk, slip),
+    -- | Rederive with kdf
+    rekdf :: slip -> pass -> (sk, pk),
+    -- | Sign data with key @sk@ and produce a detached @signature@
+    -- possibly containing @pk@ for verification.
+    sign :: sigmsg -> (sk, pk) -> signature pk,
+    -- | Verifies @signature@ container's validity.
+    verify :: sigmsg -> signature pk -> Bool,
+    -- | Encrypt data of type @plain@ to the key @pk@ and produce @encrypted@
+    -- containing @cipher@.
+    encrypt :: plain -> pk -> encrypted pk cipher,
+    -- | Decrypts @cipher@, contained in an @encrypted@ container into @plain@.
+    decrypt :: encrypted pk cipher -> sk -> Maybe plain
+  }
+
+data DummyTag = DummySK | DummyPK | DummySlip
+  deriving (Show, Eq)
+
+-- Note that we abuse the fact that in dummy implementation
+-- secret key and public key are both represented with a
+-- DummyTagged type alias to embed secret key together with
+-- the message.
+newtype DummySigned msg key = DummySigned {sig :: (key, (key, msg))}
+  deriving (Show, Eq)
+
+-- ...
+
+type DummyTagged = (DummyTag, ByteString)
+
+-- ...
+
+dummyKdf :: ByteString -> IO (Maybe (DummyTagged, DummyTagged, DummyTagged))
+dummyKdf pass = pure $ Just ((DummyPK, pass), (DummySK, pass), (DummySlip, pass))
+
+dummyRekdf :: DummyTagged -> ByteString -> Maybe (DummyTagged, DummyTagged)
+dummyRekdf (DummySlip, x) pass =
+  go (x == pass)
+  where
+    go True = Just ((DummyPK, pass), (DummySK, pass))
+    go False = Nothing
+dummyRekdf _ _ = error "DummySlip expected in the 1st argument"
+
+dummySign :: (DummyTagged, DummyTagged) -> msg -> DummySigned msg DummyTagged
+dummySign (verificationKey@(DummyPK, _), signingKey@(DummySK, _)) blob =
+  DummySigned (verificationKey, (signingKey, blob))
+dummySign _ _ = error "First argument has to be tuple of DummySK and DummyPK"
+
+-- | Note that we're not comparing public key with secret key
+-- but rather compare embedded bytestrings which match if the keys
+-- were derived from the same password by kdf
+dummyVerify :: Eq a => DummySigned a DummyTagged -> a -> Bool
+dummyVerify (DummySigned ((DummyPK, signedAs), ((DummySK, signedWith), signedWhat))) candidate =
+  (signedAs == signedWith) && (candidate == signedWhat)
+```
+
+Now to keep prototyping, we just need to instantiate PKC data type with a collection of suitable functions. Later on, when we switch to a real cryptographic system, a value of type PKC we'll build with it shall serve as a proof to the claim that "public key cryptographic systems exist as modeled". We can and should verify that early, but not too early to slow the prototyping down. Furthermore, in a similar fashion a HTTP client-server interactions can be modeled and after the prototype is completed, one will end up with a runnable, compileable specification for the software they're about to write. What's fairly amazing is that if the company doesn't want to switch from Haskell to another language for the actual product, they can repurpose this prototype for incremental rewrite into an MVP!
 
 These days, usage of higher-order and anonymous functions is prominent even in more conservative ecosystems like Java's. Type systems greatly assist in reasoning about the code's overall behaviour. In general, type systems are one of many tools for writing self-documenting code.
 
@@ -150,7 +226,5 @@ If cost 2 is even comparable to, let alone lower than, cost 1, going for using t
 => https://d-nb.info/1010333739/34 [2]: Formal Verification Methodologies for Nonlinear Analog Circuits, Dr. S. Steinhorst, Ph.D. thesis
 => https://ieeexplore.ieee.org/document/6229788 [3]: EMFtoCSP: A tool for the lightweight verification of EMF models, C. A. Gonzalez et al.
 => https://dlang.org/spec/contracts.html [4]: Contract Programming, DLang website
-=> https://github.com/conal/talk-2014-lambdajam-denotational-design [5]: Denotational Design: from meanings to programs, C. Elliott
-=> https://ro-che.info/articles/2014-12-31-denotational-design-does-not-work [6]: Denotational design does not work, R. Cheplyaka
 => https://www.youtube.com/watch?v=jNbb5JVuq-o [7]: Dependency Analysis of Haskell Declarations, Artem Kuznetsov
 
