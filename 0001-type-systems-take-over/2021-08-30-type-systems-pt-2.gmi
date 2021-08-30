@@ -1,0 +1,135 @@
+20 text/gemini; lang=en
+=> . <- Hindsight >>= Foresight
+
+=> 2021-08-22-type-systems-pt-1.gmi Previous: Why type systems matter
+
+30 August 2021
+
+# Innovative type systems: case studies of mainstream adoption
+
+## Why not settle for naive / simple type systems?
+
+As was discussed in the previous post about type systems, type systems, by definition, limit the expressiveness of languages. And yet, they are well worth it as far as budgets are concerned. Let's start this post with exploring a classical expressiveness shortcoming of languages with type systems: the problem of operating on heterogenous data.
+
+Consider needing to store a hierarchy of countries and cities in the same tree. An untyped approach would be simple: make distinct objects for countries, cities, neighbourhoods and then add `children` field to each, putting necessary objects on lower levels of the hierarchy:
+
+```Dynamic hierarchy in JavaScript
+let city1 = {"name": "Riga", "longestStreet": "Brivibas"};
+let city2 = {"name": "Zagreb", "longestStreet": "Ilica"};
+let country1 = {"name": "Latvia", "ownName": "Latvija", "capital": city1};
+let country2 = {"name": "Croatia", "ownName": "Hrvatska", "capital": city2};
+let city11 = {"name": "Zilupe", "longestStreet": "Brivibas"};
+let city22 = {"name": "Split", "longestStreet": "Domovinskog Rata"};
+let world =
+  {"name": "Earth",
+   "children":
+     [{...country1, "children": [city1, city11]},
+      {...country2, "children": [city2, city22]}]
+  };
+```
+
+Naively, the same can be achieved with simply having a tree type, parametrised with a union type that encodes either a City or a Country.
+
+```A union type in Haskell
+data World = World { name :: Text }
+data Country = Country { name :: Text, capital :: City }
+data City = City { name :: Text, longestStreet :: Text }
+data Value = W (World, [Country]) | C (Country, [City]) | T City
+```
+
+However, quite some problems arise when we want to extend encoding to also capture streets, for instance. Our union type shall change along with type definition for City. This topic is far from being trivial to solve in a polymorphic fashion in typed languages, and it, in part, spawned a whole notion in programming language theory, called "expression problem" [?][?]. Only somewhat recent research demonstrates the possibility of general type-safe computation with heterogenous data [?] by unifying pattern calculus [?] with structural polymorphism [?].
+
+That being said, in well-typed systems, refactoring is cheap and introducing refactoring loops into your feature implementation loop shouldn't be detrimental to time to market compared to using untyped approaches. Furthermore, very often, with a proper architecture the need for computing over heterogenous data can be greatly alleviated.
+
+Generic computing, however, is instrumental to even to the most basic programming since data structures, foundational to the discipline, are intrinsically generic. The question is then, if it is possible to work with them in a type-safe way. A motivational example would be Java's "Hashtable", as seen in version 1.0, dated 7th of January, 1998. Consider its `get` function:
+
+```Java 1.0 "hashtable get"
+public synchronized Object get(Object key) {
+    HashtableEntry tab[] = table;
+    int hash = key.hashCode();
+    int index = (hash & 0x7FFFFFFF) % tab.length;
+    for (HashtableEntry e = tab[index] ; e != null ; e = e.next) {
+        if ((e.hash == hash) && e.key.equals(key)) {
+    	return e.value;
+        }
+    }
+    return null;
+}
+```
+
+Considerations for the billion dollar mistake [?] aside, when we talk about type safety of this snippet, we see that, on line three of it, we call method `hashCode()` of an instance of class `Object`. This approach to "generics" asks engineers to have a single point in the closed type hierarchy, which mandates all the necessary methods for the generic applications. This approach is a source of headache for library implementers. Even if we negotiate that using Interfaces is good enough for implementing generic programs (think, `get` would accept `IHashable` instead of `Object`), the problems still exist.
+
+* Upcasting [?] to an interface or an Object would result in upcasting of the return value, which would require for downcasting later on, causing runtime errors, throwing away type guarantees.
+* Overlapping abstract method names in interfaces without resolving facilities make generic programming via upcasting less scalable.
+
+The pioneering language in the modern type systems engineering, which gave raise to Haskell and Ocaml is called "ML". ML, in mid-seventies, has introduced something called "parametric polymorphism", the idea of which is to let programmers write function signatures with bound and scoped type variables. Modern Java's Hashtable uses parametric polymorphism and is said to be "polymorphic in key and value types":
+
+```Modern class information of hashtable
+public class Hashtable<K,V>
+extends Dictionary<K,V>
+implements Map<K,V>, Cloneable, Serializable
+```
+
+## Case study: type variables for better polymorphism
+
+### Generic Java
+
+Generics were introduced to Java in version 1.5, in 2004. This implementation is based on research by Wadler et al., one of the co-creators of Haskell. Formal model was instrumental for this inclusion. That being said, a formalisation that was instrumental for extending Java with generics was finished by Igarashi, Pierce and Wadler in 2002. Complete formal model of Java wasn't made until 2007 arguably, because the language design of Java was anything but principled /.../
+
+### Generic Go
+
+## Case study: ergonomic higher kinded types in C++
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Links
+
+=> https://homepages.inf.ed.ac.uk/wadler/papers/expression/expression.txt P. Wadler: The Expression Problem
+=> https://wiki.c2.com/?ExpressionProblem C2 Wiki: Expression Problem
+=> https://qspace.library.queensu.ca/bitstream/handle/1974/672/Huang_Freeman_Y_200708_PhD.pdf?sequence=1&isAllowed=y F. Y. Huang: Type-Safe Computation with Heterogeneous Data
+=> https://www.youtube.com/watch?v=ybrQvs4x0Ps T. Hoare: Null References: The Billion Dollar Mistake
+=> https://stackoverflow.com/questions/23414090/what-is-the-difference-between-up-casting-and-down-casting-with-respect-to-class Dhivakar@SO: What is [..] up-casting and down-casting [..]
+=> https://www.oracle.com/technetwork/java/javase/generics-tutorial-159168.pdf G. Bracha, Generics in the Java Programming Language
+=> http://www.jot.fm/issues/issue_2007_09/article3.pdf M. Debbabi, M. Fourati: A Formal Type System for Java
+=> https://www.cis.upenn.edu/~bcpierce/papers/fj-toplas.pdf A. Igarashi, P. Wadler, et al.: Featherweight Java: A Minimal Core Calculus for Java and GJ
+=> https://www.youtube.com/watch?v=Dq0WFigax_c  Phil Wadler: Featherweight Go
+=> https://www.usenix.org/legacy/publications/compsystems/1989/win_stroustrup.pdf B. Stroustrup: Parametrized Types for C++
+
