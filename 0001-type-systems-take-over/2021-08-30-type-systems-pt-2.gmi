@@ -1,10 +1,3 @@
-20 text/gemini; lang=en
-=> . <- Hindsight >>= Foresight
-
-=> 2021-08-22-type-systems-pt-1.gmi Previous: Why type systems matter
-
-30 August 2021
-
 # Innovative type systems: case studies of mainstream adoption
 
 ## Why not settle for naive / simple type systems?
@@ -70,15 +63,41 @@ extends Dictionary<K,V>
 implements Map<K,V>, Cloneable, Serializable
 ```
 
+A side-note. Type systems with parametric polymorphism allow to reason about properties of systems better. For example, if a test, polymorphic in V, works on some `Hashtable<K, V = a>` h, it shall also work on a `Hashtable<K, V = b>` w, such that w[k] = f(h[k]) for any f.
+
+```ASCII art diagram showing that if test of h is true, then test composed with map f is true and test of w is also true.
+ h--test-->true
+ |       /
+ |      /
+map    /
+ f    /
+ |  test
+ |  /
+ v /
+ w
+```
+
 ## Case study: type variables for better polymorphism
 
 ### Generic Java
 
-Generics were introduced to Java in version 1.5, in 2004. This implementation is based on research by Wadler et al., one of the co-creators of Haskell. Formal model was instrumental for this inclusion. That being said, a formalisation that was instrumental for extending Java with generics was finished by Igarashi, Pierce and Wadler in 2002. Complete formal model of Java wasn't made until 2007 arguably, because the language design of Java was anything but principled /.../
+As was discussed prior, initial approach to generic programming in Java was to use Object, the common super-class for any Java class. Pizza language, made by Odersky (eventually, creator of Scala) and Wadler (co-designer of Haskell), released one year after Java, was a superset of Java that was a bit more principled and allowed for type variables that would then be "erased" and translated into Object class, automating upcasting and downcasting, thus retaining type safety. It also allows to remove the problem with exponential blow-up of compiled artefacts like the one seen in C++ due to conditional code generation.
+
+Type erasure is greatly misunderstood and some shortcomings of Java type system is misatributed to it, but it's not without its drawbacks. Most notably, one cannot use type variables in Java in to cast values to that type. I.e. `(T)x` is not a valid expression if T is type variable. The other drawback of type erasure is that even if a generic data structure or method is parametrised with a primitive type, the overhead of boxing it (turning it into a Java class) will be carried via erasure. Note that none of the drawbacks of type erasure limit type safety, only expressiveness and performance.
+
+Wadler et al., after Pizza was released, made a minimum viable formalisation of Java, which was instrumental for eventual inclusion of generics in Java in version 1.5, in 2004.
 
 ### Generic Go
 
-## Case study: ergonomic higher kinded types in C++
+Inverses the Pizza -> formalism flow, starts with formalism. In part, because the openness of supertyping creates more difficulties. There is no nominal way to say that something belongs to (implements) some interface.
+
+#### Go is structural
+
+Thus, interfaces must be considered in featherweight go.
+
+## Closing thoughts
+
+There are many other examples even within the world of polymorphism, like rediscovery of higher kinded types in C++ (something very little type systems allow for natively), design and inclusion of higher kinded types into Scala by Martin Odersky. There are other examples of mainstream languages adopting concepts from languages with more advanced type systems, such as function type treatment, allowing for ergonomic higher order functions, currying, et cetera. But all in all, we argue that exploration of repeated success of adoption of parametric polymorphism by mainstream languages does good enough job to motivate businesses to look at proceedings
 
 
 
