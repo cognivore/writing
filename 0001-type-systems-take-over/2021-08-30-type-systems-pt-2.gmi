@@ -81,63 +81,195 @@ map    /
 
 ### Generic Java
 
-As was discussed prior, initial approach to generic programming in Java was to use Object, the common super-class for any Java class. Pizza language, made by Odersky (eventually, creator of Scala) and Wadler (co-designer of Haskell), released one year after Java, was a superset of Java that was a bit more principled and allowed for type variables that would then be "erased" and translated into Object class, automating upcasting and downcasting, thus retaining type safety. It also allows to remove the problem with exponential blow-up of compiled artefacts like the one seen in C++ due to conditional code generation.
+As was discussed prior, initial approach to generic programming in Java was to use Object, the common super-class for any Java class. Pizza language, made by Odersky (eventually, creator of Scala) and Wadler (co-designer of Haskell), released one year after Java, was a superset of Java that was a bit more principled and allowed for type variables that would then be "erased" and translated into Object class, automating upcasting and downcasting, thus retaining type safety. It also allows to remove the problem with exponential blow-up of compiled artefacts like the one seen in C++ due to conditional code generation. More on that later.
 
-Type erasure is greatly misunderstood and some shortcomings of Java type system is misatributed to it, but it's not without its drawbacks. Most notably, one cannot use type variables in Java in to cast values to that type. I.e. `(T)x` is not a valid expression if T is type variable. The other drawback of type erasure is that even if a generic data structure or method is parametrised with a primitive type, the overhead of boxing it (turning it into a Java class) will be carried via erasure. Note that none of the drawbacks of type erasure limit type safety, only expressiveness and performance.
+Type erasure is greatly misunderstood and some shortcomings of Java type system is misattributed to it, but it's not without its drawbacks. Most notably, one cannot use type variables in Java in to cast values to that type. I.e. `(T)x` is not a valid expression if T is type variable. The other drawback of type erasure is that even if a generic data structure or method is parametrised with a primitive type, the overhead of boxing it (turning it into a Java class) will be carried via erasure. Note that none of the drawbacks of type erasure limit type safety, only expressiveness and performance.
 
 Wadler et al., after Pizza was released, made a minimum viable formalisation of Java, which was instrumental for eventual inclusion of generics in Java in version 1.5, in 2004.
 
 ### Generic Go
 
-Inverses the Pizza -> formalism flow, starts with formalism. In part, because the openness of supertyping creates more difficulties. There is no nominal way to say that something belongs to (implements) some interface.
+Go is infamous for the longest time between the release of an industrial language and getting generics. Importantly, it gave room for what I call `void *` polymorphism. In Go circa 2021, it's `interface{}` polymorphism and, without going into much details about why it works, we'll present you with real code that makes use of it:
 
-#### Go is structural
+```Runtime switching on type information in Go to convert a value of type "empty interface" to boolean
+func ToBoolE(i interface{}) (bool, error) {
+	i = indirect(i)
 
-Thus, interfaces must be considered in featherweight go.
+	switch b := i.(type) {
+	case bool:
+		return b, nil
+	case nil:
+		return false, nil
+	case int:
+		if i.(int) != 0 {
+			return true, nil
+		}
+		return false, nil
+	case string:
+		return strconv.ParseBool(i.(string))
+	default:
+		return false, fmt.Errorf("unable to cast %#v of type %T to bool", i, i)
+	}
+}
+```
+
+This is clearly problematic, because usage of `interface{}` type in programs poisons them with runtime switching over type information, unlifting the failure detection from the realm of static analysis to the realm of dynamic monitoring.
+
+Similarly to introducing generics to Java, introducing generics to Go included two stages: formalisation and implementation proposal. Given the experience of the team who is behind generics in Go experience in the matter (a lot of it is thanks to having Wadler on board), in case of Go, proper formalisation came first, it was implemented later.
+
+Another reason for starting with formalisation first in case of Go, perhaps, is rooted in the fact that adding parametric polymorphism to Go is harder than doing so in Java. Indeed, one of the great features of Go language is that its struct-interface supertyping is open.
+
+```Go listing, demonstrating function Show that happens to be defined on a struct called Nil
+package s
+
+type Nil struct{}
+
+func (n *Nil)Show() string {
+        return "{}"
+}
+```
+
+A structure with a function in a package defined independently can indeed happen to implement an interface defined in another package:
+
+```Go listing, demonstrating using Nil struct as an implementer of Shower interface, which requires 0-ary function Show to be implemented for the objective struct
+package main
+
+import (
+        "fmt"
+        . "doma.dev/s"
+)
+
+type Shower interface {
+        Show() string
+}
+
+func f(a Shower) string {
+        return a.Show()
+}
+
+func main() {
+        var x = Nil{}
+        fmt.Println(f(&x))
+}
+```
+
+Further complication which warranted careful planning for this feature was that the goal was to use code generation, instead of type erasure, to achieve more versatile generics at the expense of binary size.
+
+Finally, a proposal [?] that adds generics with constructive constraints (those that programmers may encode and use in their code) was implemented. What is really great about this proposal is that it seemingly solves aforementioned expression problem, making Go a pretty sweet language to work with!
+
+#### Go and expression problem test
+
+Besides, generic go, as currently implemented _almost_ passes the expression problem test.
+
+The expression problem, essentially, states that without changing the existing source code in modules (except for the integration module) and while preserving type safety, codebase is extendable with
+* a new type, implementing all existing functions;
+* a new function over all existing types.
+
+The expression problem test is then formulated as follows:
+
+* Work with expressions for a calculator DSL that builds up arithmetic expressions and then evaluates them (hence the name of "expression problem").
+* Start with an expression type case "constant" which holds a value of some primitive numeric type.
+* Implement a function "evaluate" that takes an expression and returns the corresponding value of the primitive numeric type.
+* Implement "evaluate" for "constant".
+* Encode expression "plus" that denotes adding up two expressions.
+* Extend "evaluate" to work on it without changing other modules.
+* Implement "to string" function for both expressions ("plus" and "constant") without changing other modules.
+* In the integration module, demonstrate that any function is callable over any defined type case.
+* Erase all code for "plus" and "to string".
+* Reimplement "to string" first.
+* Reimplement "plus" second, then extending "evaluate" and "to string".
+
+If generic constraint narrowing would be possible in generic go as implemented (it was planned to be possible in the original research), we would have been able to write the following code to solve the expression problem in Go:
+
+```
+// package A at time 0
+type ExprConst[T any] struct {
+	UnConst T
+}
+
+// Currently impossible
+func (e ExprConst[int]) Eval() int {
+	return e.UnConst
+}
+// end of package A at time 0
+
+// package E at time 0
+type Evaler interface {
+	Eval() int
+}
+// end of package E at time 0
+
+// package P at time 1
+type ExprPlus[L, R any] struct {
+	Left L
+	Right R
+}
+
+// Currently impossible
+func (e ExprPlus[Evaler, Evaler]) Eval() int {
+	return e.Left.Eval() + e.Right.Eval()
+}
+// end of package P at time 1
+
+// package E at time 2
+type Evaler ...
+
+type Shower interface {
+	Show() string
+}
+// end of package E at time 2
+
+// package A at time 2
+type ExprConst...
+
+func ...Eval() int...
+
+func (e ExprConst[int]) Show() string {
+	return strconv.Itoa(e.Const)
+}
+// end of package A at time 2
+
+// package P at time 2
+type ExprPlus...
+
+func ...Eval() int...
+
+func (e ExprPlus[Shower, Shower]) Show() string {
+	return fmt.Sprintf("( %s + %s )", e.Left.Show(), e.Right.Show())
+}
+// end of package P
+
+// package main at time 2
+type Expr interface {
+	Evaler
+	Shower
+}
+func main() {
+	var e Expr = ExprPlus[Expr]{
+		ExprPlus[Expr]{
+			ExprConst[Expr]{ 30 },
+			ExprConst[Expr]{ 11 },
+		},
+		ExprConst[Expr]{ 1 }
+	}
+	fmt.Printf("%d = %s", e.Eval(), e.Show())
+}
+// end of package main
+```
+
+Then, when one would run this, the output would be `42 = ( ( 30 + 11 ) + 1 )`.
+
+Quoting Robert Griesemer, one of the contributors to the FG paper and one of the main implementers of generic go:
+
+> Even though we can type-check that, we don't know to implement it efficiently in the presence of interfaces (which would also have methods with corresponding type parameters).
+
+Maybe some day...
 
 ## Closing thoughts
 
-There are many other examples even within the world of polymorphism, like rediscovery of higher kinded types in C++ (something very little type systems allow for natively), design and inclusion of higher kinded types into Scala by Martin Odersky. There are other examples of mainstream languages adopting concepts from languages with more advanced type systems, such as function type treatment, allowing for ergonomic higher order functions, currying, et cetera. But all in all, we argue that exploration of repeated success of adoption of parametric polymorphism by mainstream languages does good enough job to motivate businesses to look at proceedings
+There are many other examples even within the world of polymorphism, like rediscovery of higher kinded types in C++ (something very little type systems allow for natively), design and inclusion of higher kinded types into Scala by Martin Odersky. There are other examples of mainstream languages adopting concepts from languages with more advanced type systems, such as function type treatment, allowing for ergonomic higher order functions, currying, et cetera. We expect structural typing to make its way into functional programming languages from already existing implementations in PureScript and an industrial laboratory language Ermine and eventually be adopted in mainstream languages.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+All in all, we argue that exploration of repeated success of adoption of parametric polymorphism by mainstream languages does good enough job to motivate businesses to look at proceedings
 
 ## Links
 
@@ -150,5 +282,9 @@ There are many other examples even within the world of polymorphism, like redisc
 => http://www.jot.fm/issues/issue_2007_09/article3.pdf M. Debbabi, M. Fourati: A Formal Type System for Java
 => https://www.cis.upenn.edu/~bcpierce/papers/fj-toplas.pdf A. Igarashi, P. Wadler, et al.: Featherweight Java: A Minimal Core Calculus for Java and GJ
 => https://www.youtube.com/watch?v=Dq0WFigax_c  Phil Wadler: Featherweight Go
+=> https://go.googlesource.com/proposal/+/refs/heads/master/design/43651-type-parameters.md I. L. Taylor, R. Griesemer: Type Parameters Proposal (Accepted)
 => https://www.usenix.org/legacy/publications/compsystems/1989/win_stroustrup.pdf B. Stroustrup: Parametrized Types for C++
+=> https://www.youtube.com/watch?v=62xlcsJ0AUs R. Griesemer: Featherweight Go
+=> https://homepages.inf.ed.ac.uk/wadler/papers/fg/fg.pdf P. Wadler et al.: Featherweight Go
+=> https://www.reddit.com/r/haskell/comments/8uhj1f/what_is_the_status_on_structural_typing_row_types/ Reddit: Status of structural typing
 
