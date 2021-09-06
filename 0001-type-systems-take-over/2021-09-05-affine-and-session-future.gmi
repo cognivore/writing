@@ -1,3 +1,17 @@
-# Affine and session future of typed computing
+# The future of typed computing
 
+## TL;DR
 
+* Together with accepting more programs, there is an effort on improving guarantees by allowing programmers to tighten up the types using type level literals, type level arithmetic and algebras.
+* It's achieved by introducing dependent types, which are, in essense, systems that allow you to write functions over types themselves.
+* Special kind of types that ensure that each underlying value is used exactly once (or not more than once) are possible. They are called linear (or affine) types.
+* These types are collectively called "substructural types" and stem from substructural logic.
+* These types power ownership, move semantics and borrow checking in Rust.
+* In Rust, affinity is not optional for the end users because it is how memory safety is guaranteed.
+* The only industrial language with affine and linear types exposed to the users is Haskell.
+* Substructural types enable more proceedings in type systems.
+* There are formal methods for reasoning about distributed computing based on process calculi.
+* Compared to Turing machines, most of lambda calculi and most other models of computation, process calculi are *not* sequential.
+* Type system engineering adopts it via something called "session types".
+* There are implementations of session types that rely on linear types.
+* Session types are the future of languages like Gleam.
