@@ -1,0 +1,209 @@
+# whoami
+
+jonn : _
+
+# this talk
+
+## goals
+
+### why type systems
+
+### survey of innovation propagation
+PLT -> compilers -> software engineering -> business
+
+### inspire adoption and/or research
+
+## non-goals
+
+### exhaustiveness
+
+### depth
+
+### maths
+
+# why type systems?
+
+## reject bad programs
+
+## runtime monitoring
+
+### snippet
+
+```
+let xs = [1] + [2]
+// ...
+let y = xs.reduce((_acc, _x) => true)
+```
+
+### error
+
+```
+Uncaught TypeError: xs.reduce is not a function
+```
+
+### error analysis
+
+* far away from the problem
+* conditional
+* delayed
+
+## static type checking
+
+### snippet
+
+```
+xs = [1] + [2]
+-- ...
+y = foldl (\_ _ -> True) False xs
+```
+
+### error
+
+```
+• No instance for (Num [a0]) arising from a use of ‘+’
+    |
+  1 | xs = [1] + [2]
+    |      ^^^^^^^^^
+```
+
+### error analysis
+
+* pin-points the problem
+* unconditional
+* immediate
+* type inference works
+
+# additional perks of type systems
+
+## cheap refactoring
+
+## case analysis
+
+```
+Either a b = Left a | Right b
+```
+
+## mock prototyping
+
+```
+data PKC pass sk pk slip sig sigmsg enc plain cipher = PKC {
+ -- ...
+	verify :: sigmsg -> signature pk -> Bool
+ -- ...
+}
+```
+
+## self-documentation
+
+```
+> :t foldl
+foldl :: Foldable t => (b -> a -> b) -> b -> t a -> b
+```
+
+# drawbacks of type systems
+
+## learning curve
+
+## typing isn't free
+
+## refuse some good programs
+
+```
+if false [1] + [2] else [1] ++ [2]
+```
+
+# type systems are *systems*
+
+## picking battles
+
+## tradeoffs
+
+ex. code generation contradicts with polymorphic recursion
+
+# does industry care?
+
+## generic java
+
+```
+public class Hashtable {
+  // ...
+  public Object get(Object key) {
+    // ...
+    return entry.value;
+  }
+}
+```
+
+## generic java
+
+```
+public class Hashtable<K,V> {
+  // ...
+  public V get(K key) {
+    // ...
+    return entry.value;
+  }
+}
+```
+
+## generic java
+
+### type erasure
+
+* everything becomes Object after type checking
+* no way to cast to type variable (T)x
+
+## generic go
+
+* same idea introduction
+* formalisms first
+* code generation (monomorphisation) instead of type erasure
+
+# more industrial use of R&D in type systems
+
+## scala
+
+## anonymous and higher order functions in mainstream languages
+
+# open questions
+
+## unstructured and heterogenous data
+
+```
+let city1 = {"name": "Riga", "longestStreet": "Brivibas"};
+let city2 = {"name": "Zagreb", "longestStreet": "Ilica"};
+let country1 = {"name": "Latvia", "ownName": "Latvija", "capital": city1};
+let country2 = {"name": "Croatia", "ownName": "Hrvatska", "capital": city2};
+let city11 = {"name": "Zilupe", "longestStreet": "Brivibas"};
+let city22 = {"name": "Split", "longestStreet": "Domovinskog Rata"};
+let world =
+  {"name": "Earth",
+   "children":
+     [{...country1, "children": [city1, city11]},
+      {...country2, "children": [city2, city22]}]
+  };
+```
+
+## type level programming
+
+## typing parallelism and concurrency
+
+# adopt
+
+serokell built business on type systems
+
+# engineer
+
+bring advanced stuff to your language via libraries
+
+# research
+
+create compilers and patch existing ones
+
+# invest
+
+sponsor PLT R&D
+* purescript
+* gleam
+
+# questions

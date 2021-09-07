@@ -15,3 +15,25 @@
 * Type system engineering adopts it via something called "session types".
 * There are implementations of session types that rely on linear types.
 * Session types are the future of languages like Gleam.
+
+## Why keep doing PLT research
+
+In the previous post we have demonstrated why reincorporating existing and well-studied language features into mainstream languages is largely desired. In this post we'll show why incorporating cutting edge PLT research into new and current language compilers. The two big ideas are:
+
+* Increase expressiveness of typed languages by refusing less valid programs.
+* Add new facilities to encode more elaborate statements about the programs.
+
+This post will focus on the latter idea. Arguably, the most important breakthroughs as far as novel type system features are concerned, are:
+
+* Dependent types.
+* Session types.
+
+Whereas dependent types are available in general purpose languages like Idris, session types aren't just yet (at the compiler level), but you can check them out in some special languages. Some implementations as libraries exist, some even statically-checked.
+
+=> https://wen.works/posts/2020-12-17-an-introduction-to-session-types.html An Introduction to Session Types
+=> https://www.doc.ic.ac.uk/~dorchard/publ/popl16-orchard-yoshida.pdf Effects as Sessions, Sessions as Effects
+=> https://groups.inf.ed.ac.uk/abcd/session-implementations.html Session Types in Programming Languages: A Collection of Implementations
+
+## Dependent Types
+
+
